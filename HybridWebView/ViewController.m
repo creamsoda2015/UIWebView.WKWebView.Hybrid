@@ -9,6 +9,9 @@
 #import "ViewController.h"
 
 @interface ViewController ()
+@property (weak, nonatomic) IBOutlet UIView *containerView;
+@property (weak, nonatomic) IBOutlet UITextField *urlText;
+@property (weak, nonatomic) IBOutlet UIButton *loadButton;
 
 @end
 
@@ -18,7 +21,9 @@
     [super viewDidLoad];
     // Do any additional setup after loading the view, typically from a nib.
     
-    mWebView = [WebViewManager createWebView:CGRectMake(0, 0, self.view.frame.size.width, self.view.frame.size.height) jsPanelController:self];
+    NSLog(@"container %f", self.containerView.frame.size.height);
+    
+    mWebView = [WebViewManager createWebView:CGRectMake(0, 0, self.containerView.frame.size.width, self.containerView.frame.size.height) jsPanelController:self];
     // mWebView.customUA = "";
     mWebView.scalesPageToFit = YES;
     mWebView.backgroundColor = [UIColor blackColor];
@@ -27,9 +32,13 @@
     [mWebView scrollBounceEnabled:NO];
     [mWebView scrollBarShow:NO];
     [mWebView removeGesture];
-    [self.view addSubview:(UIView *)mWebView];
+    [self.containerView addSubview:(UIView *)mWebView];
     
-    [mWebView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"http://www.apple.com/jp/"]]];
+    // if you use ssl connection, you need to set 'Exception Domains' in Info.plist.
+    // check command : nscurl --ats-diagnostics --verbose {url}
+    NSString *url = @"http://www.apple.com/jp/";
+    [mWebView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:url]]];
+    [self setUrlTextString:url];
 }
 
 - (void)didReceiveMemoryWarning {
@@ -51,6 +60,19 @@
 
 - (void)didFailLoad:(NSError *)error {
     
+}
+
+- (void)setUrlTextString:(NSString *)urlString {
+    self.urlText.text = urlString;
+}
+
+- (IBAction)loadButtonTouched:(id)sender {
+    NSString *url = [self.urlText text];
+    if ([url length] == 0)
+    {
+        return;
+    }
+    [mWebView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:url]]];
 }
 
 @end

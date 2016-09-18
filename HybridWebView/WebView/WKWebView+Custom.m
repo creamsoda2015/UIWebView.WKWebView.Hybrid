@@ -179,6 +179,9 @@
 
 - (void)webView:(WKWebView *)webView didFailProvisionalNavigation:(null_unspecified WKNavigation *)navigation withError:(NSError *)error {
     
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:[NSString stringWithFormat:@"Error %zd", error.code] message:error.localizedDescription preferredStyle:UIAlertControllerStyleAlert];
+    [alert addAction:[UIAlertAction actionWithTitle:@"Ok" style:UIAlertActionStyleDefault handler:nil]];
+    [self.jsPanelController presentViewController:alert animated:YES completion:nil];
 }
 
 - (void)webView:(WKWebView *)webView didCommitNavigation:(null_unspecified WKNavigation *)navigation {
@@ -202,12 +205,52 @@
 
 - (void)webView:(WKWebView *)webView didReceiveAuthenticationChallenge:(NSURLAuthenticationChallenge *)challenge completionHandler:(void (^)(NSURLSessionAuthChallengeDisposition disposition, NSURLCredential *__nullable credential))completionHandler {
     
-    if (challenge.previousFailureCount == 0){
-        NSURLCredentialPersistence persistence = NSURLCredentialPersistenceForSession;
-        NSURLCredential *credential = [NSURLCredential credentialWithUser:@"username" password:@"password" persistence:persistence];
-        completionHandler(NSURLSessionAuthChallengeUseCredential,credential);
-    }else{
-        completionHandler(NSURLSessionAuthChallengeCancelAuthenticationChallenge, nil);
+    NSString *hostName = webView.URL.host;
+    
+    // # other methods
+    // NSURLAuthenticationMethodHTMLForm
+    // NSURLAuthenticationMethodNegotiate
+    // NSURLAuthenticationMethodNTLM
+    // NSURLAuthenticationMethodClientCertificate
+    
+    NSURLProtectionSpace *challengeSpace = [challenge protectionSpace];
+    NSString *authenticationMethod = [challengeSpace authenticationMethod];
+    if ([authenticationMethod isEqualToString:NSURLAuthenticationMethodDefault]
+        || [authenticationMethod isEqualToString:NSURLAuthenticationMethodHTTPBasic]
+        || [authenticationMethod isEqualToString:NSURLAuthenticationMethodHTTPDigest]) {
+
+        NSString *title = @"Authentication Required";
+        NSString *message = [NSString stringWithFormat:@"This server %@ requires username and password.", hostName];
+        UIAlertController *alertController = [UIAlertController alertControllerWithTitle:title message:message preferredStyle:UIAlertControllerStyleAlert];
+        [alertController addTextFieldWithConfigurationHandler:^(UITextField *textField) {
+            textField.placeholder = @"User name:";
+            textField.secureTextEntry = YES;
+        }];
+        [alertController addTextFieldWithConfigurationHandler:^(UITextField *textField) {
+            textField.placeholder = @"Password:";
+            textField.secureTextEntry = YES;
+        }];
+        [alertController addAction:[UIAlertAction actionWithTitle:@"Log In" style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
+            
+            NSString *userName = ((UITextField *)alertController.textFields[0]).text;
+            NSString *password = ((UITextField *)alertController.textFields[1]).text;
+            
+            // permanently stored credential setting.
+            NSURLCredential *credential = [[NSURLCredential alloc] initWithUser:userName password:password persistence:NSURLCredentialPersistencePermanent];
+            
+            completionHandler(NSURLSessionAuthChallengeUseCredential, credential);
+            
+        }]];
+        [alertController addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:^(UIAlertAction *action) {
+            completionHandler(NSURLSessionAuthChallengeCancelAuthenticationChallenge, nil);
+        }]];
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [self.jsPanelController presentViewController:alertController animated:YES completion:^{}];
+        });
+    } else if ([authenticationMethod isEqualToString:NSURLAuthenticationMethodServerTrust]) {
+        completionHandler(NSURLSessionAuthChallengePerformDefaultHandling, nil);
+    } else {
+        completionHandler(NSURLSessionAuthChallengePerformDefaultHandling, nil);
     }
 }
 
@@ -252,7 +295,7 @@
     NSString *sender = [NSString stringWithFormat:@"%@", hostString];
     
     UIAlertController *alertController = [UIAlertController alertControllerWithTitle:message message:sender preferredStyle:UIAlertControllerStyleAlert];
-    [alertController addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
+    [alertController addAction:[UIAlertAction actionWithTitle:@"Ok" style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
         completionHandler(YES);
     }]];
     [alertController addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:^(UIAlertAction *action) {
@@ -273,7 +316,7 @@
     [alertController addTextFieldWithConfigurationHandler:^(UITextField *textField) {
         textField.text = defaultText;
     }];
-    [alertController addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
+    [alertController addAction:[UIAlertAction actionWithTitle:@"Ok" style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
         NSString *input = ((UITextField *)alertController.textFields.firstObject).text;
         completionHandler(input);
     }]];
